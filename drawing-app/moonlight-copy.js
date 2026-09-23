@@ -90,12 +90,12 @@
       { fill: '#e4e0ec', color: LINE, width: 2 });
 
   // 髪（後ろ）
-  add(curve([[240, 160], [245, 108], [292, 78], [352, 84], [395, 118], [408, 180], [402, 240], [392, 290],
-             [372, 300], [360, 255], [330, 240], [290, 240], [252, 232]], true), { fill: HAIR, color: HAIR_LINE, width: 1.5 });
+  add(curve([[232, 170], [240, 108], [292, 76], [356, 82], [402, 118], [414, 190], [408, 260], [398, 310],
+             [378, 318], [366, 270], [330, 262], [290, 262], [246, 262]], true), { fill: HAIR, color: HAIR_LINE, width: 1.5 });
   add(curve([[380, 150], [395, 210], [388, 280]]), { color: '#c9c2da', width: 1.5 });
 
   // 首
-  add([[298, 208], [335, 208], [338, 252], [300, 252]], { fill: '#ede0de', width: 0 });
+  add([[300, 250], [334, 250], [337, 282], [302, 282]], { fill: '#ede0de', width: 0 });
 
   // ブラウス（胴）
   add(curve([[300, 248], [250, 272], [245, 360], [265, 450], [282, 545], [452, 540], [445, 450], [438, 360],
@@ -110,12 +110,12 @@
   add(curve([[508, 676], [526, 672], [532, 700], [520, 722], [506, 716], [502, 695]], true), { fill: SKIN, color: '#b8a3a0', width: 1.5 });
 
   // 襟とリボン
-  add([[298, 240], [336, 264], [308, 280], [290, 256]], { fill: '#fbfafc', color: LINE, width: 2 });
-  add([[372, 238], [338, 264], [366, 278], [384, 256]], { fill: '#fbfafc', color: LINE, width: 2 });
-  add(ellipse(328, 268, 9, 5, 0, Math.PI * 2, 12), { fill: '#1b1a22', width: 0 });
-  add(ellipse(346, 268, 9, 5, 0, Math.PI * 2, 12), { fill: '#1b1a22', width: 0 });
-  add(curve([[334, 270], [325, 310], [318, 380]]), { color: '#1b1a22', width: 5 });
-  add(curve([[340, 270], [352, 320], [345, 385]]), { color: '#1b1a22', width: 5 });
+  add([[300, 266], [336, 286], [310, 298], [292, 278]], { fill: '#fbfafc', color: LINE, width: 2 });
+  add([[372, 264], [338, 286], [364, 297], [382, 278]], { fill: '#fbfafc', color: LINE, width: 2 });
+  add(ellipse(328, 289, 9, 5, 0, Math.PI * 2, 12), { fill: '#1b1a22', width: 0 });
+  add(ellipse(346, 289, 9, 5, 0, Math.PI * 2, 12), { fill: '#1b1a22', width: 0 });
+  add(curve([[334, 291], [325, 330], [318, 395]]), { color: '#1b1a22', width: 5 });
+  add(curve([[340, 291], [352, 340], [345, 400]]), { color: '#1b1a22', width: 5 });
 
   // スカート（ハイウエスト、前ボタン）
   add(curve([[282, 560], [270, 650], [262, 760], [258, H], [490, H], [480, 760], [468, 650], [452, 560]]),
@@ -136,42 +136,83 @@
   add(curve([[362, 560], [355, 620], [362, 690]]), { color: '#1b1a22', width: 5 });
   add(curve([[367, 560], [378, 600], [372, 650]]), { color: '#1b1a22', width: 5 });
 
-  // 顔
-  add(curve([[262, 125], [262, 172], [280, 202], [312, 218], [342, 204], [360, 172], [360, 125], [312, 100]], true),
+  // 顔（参考画像で目は顔の縦中央より下、両目の間隔は広め）
+  add(curve([[252, 140], [253, 200], [262, 230], [284, 252], [317, 264], [350, 252], [372, 230], [381, 200], [382, 140], [317, 98]], true),
       { fill: SKIN, color: '#c9b2b0', width: 1.5 });
-  // 目（灰色の瞳、赤みのある下まぶた）
-  [[287, 164], [338, 164]].forEach(([x, y]) => {
-    add(ellipse(x, y, 13, 8, 0, Math.PI * 2, 20), { fill: '#fbfbfd', width: 0 });
-    add(circle(x, y + 1, 7, 18), { fill: '#a19eab', color: '#6a6678', width: 1 });
-    add(circle(x, y + 1, 3, 10), { fill: '#4d4a57', width: 0 });
-    add(circle(x - 2, y - 2, 1.8, 8), { fill: '#fff', width: 0 });
-    add(ellipse(x, y + 2, 15, 10, Math.PI * 1.1, Math.PI * 1.9, 12), { color: LINE, width: 3 });
-    add(ellipse(x, y - 1, 13, 9, Math.PI * 0.15, Math.PI * 0.85, 10), { color: '#d98a8a', width: 1.5, alpha: 0.8 });
-  });
-  add(ellipse(282, 186, 12, 5, 0, Math.PI * 2, 12), { fill: '#f2a9ab', width: 0, alpha: 0.35 });
-  add(ellipse(344, 186, 12, 5, 0, Math.PI * 2, 12), { fill: '#f2a9ab', width: 0, alpha: 0.35 });
-  add([[313, 184], [315, 190]], { color: '#c9a2a0', width: 1.5 });
-  add(ellipse(315, 202, 7, 3, 0, Math.PI * 2, 12), { fill: '#eba5a8', width: 0 });
+  // 前髪の落とす影
+  add([[252, 186], [382, 186], [382, 204], [252, 204]], { fill: '#d9cfe0', width: 0, alpha: 0.35 });
 
-  // 前髪（ぱっつん）とサイドの髪
-  const fringe = [[256, 158]];
-  for (let x = 262; x <= 362; x += 10) fringe.push([x, x % 20 ? 150 : 158]);
-  add([...fringe, ...curve([[364, 150], [362, 110], [330, 88], [290, 90], [262, 112], [256, 158]])],
+  // 目：横長のアーモンド形。上まぶたが瞳の上側を大きく隠す伏し目。dir は目尻の向き
+  const eye = (cx, cy, dir) => {
+    const inner = [cx - 17 * dir, cy + 2], outer = [cx + 20 * dir, cy + 1];
+    const upper = curve([inner, [cx - 7 * dir, cy - 4], [cx + 9 * dir, cy - 5], outer]);
+    const lower = curve([outer, [cx + 8 * dir, cy + 10], [cx - 6 * dir, cy + 9], inner]);
+    add([...upper, ...lower], { fill: '#fdfcfe', width: 0 });                     // 白目
+    add(circle(cx + 1 * dir, cy + 3, 10.5, 24), { fill: '#8f8b9b', width: 0 });    // 虹彩（外周）
+    add(circle(cx + 1 * dir, cy + 4, 7.5, 20), { fill: '#c4c0cd', width: 0 });     // 虹彩（内側の明るみ）
+    add(circle(cx + 1 * dir, cy + 3, 3, 12), { fill: '#6a6676', width: 0 });       // 瞳孔
+    // 上まぶたで瞳の上側を隠す（肌色で覆う）
+    add([...upper, [outer[0] + 4 * dir, cy - 18], [inner[0] - 4 * dir, cy - 18]], { fill: SKIN, width: 0 });
+    add(upper, { color: '#3a3445', width: 4 });                                    // まつげの線
+    [[0.55, -6], [0.8, -5], [1, -3]].forEach(([t, dy]) => {                        // 目尻側のまつげ
+      const x = cx + (-7 + 27 * t) * dir, y = cy - 4 + (t > 0.9 ? 4 : 0);
+      add([[x, y], [x + 5 * dir, y + dy]], { color: '#3a3445', width: 1.5 });
+    });
+    add(curve([[cx - 12 * dir, cy - 9], [cx + 3 * dir, cy - 12], [cx + 17 * dir, cy - 8]]), { color: '#a893a3', width: 1 }); // 二重
+    add(lower, { color: '#d47f86', width: 1.5, alpha: 0.9 });                     // 赤みのある下まぶた
+    add(ellipse(cx + 14 * dir, cy + 5, 8, 4, 0, Math.PI * 2, 12), { fill: '#e79a9f', width: 0, alpha: 0.35 }); // 目尻の赤
+    add(circle(cx - 3 * dir, cy + 1, 2, 8), { fill: '#fff', width: 0 });          // ハイライト
+    add(circle(cx + 5 * dir, cy + 7, 1.2, 6), { fill: '#fff', width: 0, alpha: 0.9 });
+  };
+  eye(282, 209, -1);
+  eye(352, 209, 1);
+
+  // 頬の赤み（斜線）
+  [[266, 230], [344, 230]].forEach(([x, y]) => {
+    add(ellipse(x + 11, y + 2, 16, 5, 0, Math.PI * 2, 12), { fill: '#f2a9ab', width: 0, alpha: 0.3 });
+    for (let i = 0; i < 5; i++) add([[x + i * 5, y + 5], [x + i * 5 + 4, y]], { color: '#e38f95', width: 1, alpha: 0.6 });
+  });
+  // 鼻（小さな影と光）と唇
+  add(curve([[316, 230], [319, 234], [317, 236]]), { color: '#d2aaa8', width: 1.2 });
+  add(circle(317, 228, 1.3, 6), { fill: '#fff', width: 0, alpha: 0.9 });
+  add(curve([[309, 246], [313, 245], [317, 246.5], [321, 245], [325, 246]]), { fill: '#eda9ad', color: '#c98488', width: 1.2 });
+  add(ellipse(317, 249, 7, 3.2, 0, Math.PI, 12), { fill: '#f3b7b9', width: 0 });
+  add(ellipse(319, 249, 2.5, 0.8, 0, Math.PI * 2, 8), { fill: '#fff', width: 0, alpha: 0.7 });
+
+  // 前髪（目の上まで届く長めのぱっつん。数本の毛束が目元にかかる）
+  const fringe = [[248, 192]];
+  for (let x = 254; x <= 382; x += 7) fringe.push([x, 188 + ((x * 13) % 9)]);
+  add([...fringe, ...curve([[386, 192], [384, 120], [350, 88], [290, 88], [256, 115], [248, 192]])],
       { fill: HAIR, color: HAIR_LINE, width: 1.5 });
-  for (let x = 272; x <= 352; x += 16) add(curve([[x + 6, 98], [x + 2, 125], [x, 150]]), { color: '#bdb6cf', width: 1 });
-  add(curve([[262, 140], [252, 190], [256, 240]]), { color: HAIR_LINE, width: 6 });
-  add(curve([[360, 140], [370, 190], [366, 240]]), { color: HAIR_LINE, width: 6 });
-  add(curve([[262, 140], [252, 190], [256, 240]]), { color: HAIR, width: 4 });
-  add(curve([[360, 140], [370, 190], [366, 240]]), { color: HAIR, width: 4 });
+  for (let x = 262; x <= 376; x += 12) add(curve([[x + 10, 100], [x + 4, 150], [x, 190]]), { color: '#c3bcd4', width: 1 });
+  [[316, 192, 319, 224], [296, 192, 291, 216], [340, 192, 346, 218], [262, 192, 256, 222], [372, 192, 378, 222]]
+    .forEach(([x1, y1, x2, y2]) => {
+      const mx = (x1 + x2) / 2 + (x2 - x1) * 0.3, my = (y1 + y2) / 2;
+      add(curve([[x1 - 5, y1 - 2], [mx - 2, my], [x2, y2], [mx + 2, my], [x1 + 5, y1 - 2]]),
+          { fill: HAIR, color: HAIR_LINE, width: 1 });
+    });
+  // 前髪の分け目から左右へ流れる毛束
+  add(curve([[317, 96], [304, 140], [294, 190]]), { color: HAIR_LINE, width: 1.2 });
+  add(curve([[317, 96], [332, 140], [342, 190]]), { color: HAIR_LINE, width: 1.2 });
+  // 頭頂のツヤ（天使の輪）
+  add(curve([[270, 134], [292, 125], [317, 122], [342, 125], [366, 134]]), { color: '#ffffff', width: 4, alpha: 0.75 });
+  for (let x = 274; x <= 362; x += 11) add([[x, 122], [x - 1, 140]], { color: '#ffffff', width: 2, alpha: 0.7 });
+  // 顔の横に垂れるサイドの髪
+  add(curve([[256, 150], [245, 200], [240, 250], [248, 285], [262, 276], [260, 220], [264, 170]], true),
+      { fill: HAIR, color: HAIR_LINE, width: 1.2 });
+  add(curve([[378, 150], [390, 200], [396, 250], [388, 288], [374, 278], [374, 220], [370, 170]], true),
+      { fill: HAIR, color: HAIR_LINE, width: 1.2 });
+  add(curve([[252, 185], [247, 235], [252, 275]]), { color: '#c3bcd4', width: 1 });
+  add(curve([[384, 185], [390, 235], [384, 278]]), { color: '#c3bcd4', width: 1 });
 
   // 三つ編み（画面左の肩へ）
   for (let i = 0; i < 7; i++) {
-    const x = 256 - i * 2.5, y = 232 + i * 17;
+    const x = 252 - i * 2.5, y = 280 + i * 15;
     add(ellipse(x + (i % 2 ? 4 : -4), y, 12, 10, 0, Math.PI * 2, 16), { fill: HAIR, color: HAIR_LINE, width: 1.5 });
   }
-  add(rect(230, 348, 16, 7), { fill: '#1b1a22', width: 0 });
-  add(curve([[240, 355], [232, 380], [240, 400]]), { color: HAIR_LINE, width: 10 });
-  add(curve([[240, 355], [232, 380], [240, 400]]), { color: HAIR, width: 7 });
+  add(rect(226, 378, 16, 7), { fill: '#1b1a22', width: 0 });
+  add(curve([[236, 385], [228, 405], [236, 425]]), { color: HAIR_LINE, width: 10 });
+  add(curve([[236, 385], [228, 405], [236, 425]]), { color: HAIR, width: 7 });
 
   // 左袖（画面左、ランタンを掲げる腕）
   add(curve([[245, 285], [200, 300], [165, 380], [95, 460], [50, 560], [120, 585], [170, 540], [215, 420]], true),
