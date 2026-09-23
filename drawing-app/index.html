@@ -32,6 +32,7 @@
     background: var(--panel); border: 1px solid var(--border);
     border-radius: 10px; padding: 8px 12px; max-width: 800px; width: 100%;
   }
+  .toolbar input[type="checkbox"] { margin: 0; }
   .toolbar label { font-size: .85rem; color: var(--muted); display: flex; align-items: center; gap: 4px; }
   button {
     font: inherit; font-size: .85rem; padding: 6px 12px; border-radius: 6px;
@@ -43,8 +44,7 @@
   button[aria-pressed="true"] { outline: 2px solid var(--accent); }
   canvas {
     background: #fff; border: 1px solid var(--border); border-radius: 10px;
-    max-width: 100%; max-height: 85vh; width: auto; height: auto;
-    touch-action: none; cursor: crosshair;
+    height: auto; touch-action: none; cursor: crosshair;
   }
   .note { font-size: .8rem; color: var(--muted); max-width: 800px; text-align: center; }
 </style>
@@ -53,7 +53,10 @@
   <h1>お絵かきキャンバス</h1>
   <div class="toolbar">
     <label>色 <input type="color" id="color" value="#2b2b2b"></label>
-    <label>太さ <input type="range" id="width" min="1" max="40" value="4"></label>
+    <label>太さ <input type="range" id="width" min="0.5" max="40" step="0.5" value="3"></label>
+    <label>濃さ <input type="range" id="opacity" min="0.05" max="1" step="0.05" value="1"></label>
+    <label><input type="checkbox" id="pressure" checked> 筆圧</label>
+    <label><input type="checkbox" id="taper" checked> 入り抜き</label>
     <button id="eraser" aria-pressed="false">消しゴム</button>
     <button id="undo">元に戻す</button>
     <button id="clear">全消去</button>
@@ -61,8 +64,8 @@
     <select id="pick" aria-label="AIが描く絵"></select>
     <button id="ai" class="primary">AIが描く</button>
   </div>
-  <canvas id="canvas" width="800" height="560"></canvas>
-  <p class="note">マウスや指で自由に描けます。「AIが描く」を押すと、選んだ絵を Claude が一筆ずつ、同じペンで描いていきます。</p>
+  <canvas id="canvas"></canvas>
+  <p class="note">マウスや指、ペンタブで自由に描けます（ペンなら筆圧が線の太さに反映されます）。「AIが描く」を押すと、選んだ絵を Claude が一筆ずつ、同じペンで描いていきます。</p>
 
 <script src="draw-kit.js"></script>
 <script src="ai-drawing.js"></script>
@@ -71,9 +74,15 @@
 (() => {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
-  const colorEl = document.getElementById('color');
-  const widthEl = document.getElementById('width');
-  const eraserEl = document.getElementById('eraser');
+  const $ = id => document.getElementById(id);
+  const eraserEl = $('eraser');
+
+  // 表示サイズの 2〜3 倍の解像度で描き、細い線も高精細な画面でにじませない。
+  const SCALE = Math.min(3, Math.max(2, Math.ceil(window.devicePixelRatio || 1)));
+  // 描き終えたストロークは base に焼き付け、描画中の 1 本だけを毎フレーム重ねる。
+  const base = document.createElement('canvas');
+  const bctx = base.getContext('2d');
+  let W = 800, H = 560;
 
   // Every stroke (human or AI) is kept so undo can replay the history.
   const strokes = [];
@@ -81,59 +90,140 @@
   let erasing = false;
   let animating = false;
 
-  function drawStroke(s, upto = s.points.length) {
-    const pts = s.points.slice(0, upto);
-    if (!pts.length) return;
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.globalAlpha = s.alpha ?? 1;
-    ctx.beginPath();
-    ctx.moveTo(pts[0][0], pts[0][1]);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-    if (s.fill && upto === s.points.length) {
-      ctx.closePath();
-      ctx.fillStyle = s.fill;
-      ctx.fill();
-    }
-    if (s.width > 0) {
-      ctx.strokeStyle = s.color;
-      ctx.lineWidth = s.width;
-      if (pts.length === 1) ctx.lineTo(pts[0][0] + 0.01, pts[0][1]);
-      ctx.stroke();
-    }
-    ctx.restore();
+  function resize(w, h) {
+    W = w; H = h;
+    for (const c of [canvas, base]) { c.width = w * SCALE; c.height = h * SCALE; }
+    canvas.style.width = `min(${w}px, 100%, calc(85vh * ${w / h}))`;
   }
 
-  function redraw() {
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    strokes.forEach(s => drawStroke(s));
+  // 色の指定は文字列のほか、グラデーションも受け付ける：
+  //   { linear: [x0, y0, x1, y1], stops: [[0, '#fff'], [1, '#000']] }
+  //   { radial: [x0, y0, r0, x1, y1, r1], stops: [...] }
+  function paint(c, spec) {
+    if (typeof spec === 'string') return spec;
+    const g = spec.linear ? c.createLinearGradient(...spec.linear) : c.createRadialGradient(...spec.radial);
+    spec.stops.forEach(([o, col]) => g.addColorStop(o, col));
+    return g;
+  }
+
+  function polyPath(c, pts, close) {
+    c.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+    if (close) c.closePath();
+  }
+
+  // 点ごとの太さ（[x, y, w] の w は太さの倍率）を持つ線を、輪郭の多角形として塗る。
+  // 両端は半円でふさぐので、入り抜きのある線も普通の線と同じ丸い端になる。
+  function variablePath(c, pts, width) {
+    const n = pts.length, left = [], right = [];
+    const norm = i => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+      const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+      return [-dy / l, dx / l];
+    };
+    for (let i = 0; i < n; i++) {
+      const [nx, ny] = norm(i), r = width * (pts[i][2] ?? 1) / 2;
+      left.push([pts[i][0] + nx * r, pts[i][1] + ny * r]);
+      right.push([pts[i][0] - nx * r, pts[i][1] - ny * r]);
+    }
+    const cap = (i, from) => {
+      const [nx, ny] = norm(i), r = width * (pts[i][2] ?? 1) / 2, a0 = Math.atan2(ny, nx) + from;
+      const out = [];
+      for (let k = 1; k < 8; k++) {
+        const a = a0 - Math.PI * k / 8;
+        out.push([pts[i][0] + Math.cos(a) * r, pts[i][1] + Math.sin(a) * r]);
+      }
+      return out;
+    };
+    polyPath(c, [...left, ...cap(n - 1, 0), ...right.reverse(), ...cap(0, Math.PI)], true);
+  }
+
+  function drawStroke(c, s, upto = s.points.length) {
+    const pts = s.points.slice(0, upto);
+    if (!pts.length) return;
+    c.save();
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    c.globalAlpha = s.alpha ?? 1;
+    if (s.blend) c.globalCompositeOperation = s.blend;
+    if (s.blur) c.filter = `blur(${s.blur * SCALE}px)`;
+    if (s.clip) { c.beginPath(); polyPath(c, s.clip, true); c.clip(); }
+    if (s.fill && upto === s.points.length) {
+      c.beginPath();
+      polyPath(c, pts, true);
+      c.fillStyle = paint(c, s.fill);
+      c.fill();
+    }
+    if (s.width > 0) {
+      c.beginPath();
+      if (pts.length === 1) {
+        c.arc(pts[0][0], pts[0][1], s.width * (pts[0][2] ?? 1) / 2, 0, Math.PI * 2);
+        c.fillStyle = paint(c, s.color);
+        c.fill();
+      } else if (pts.some(p => p.length > 2)) {
+        variablePath(c, pts, s.width);
+        c.fillStyle = paint(c, s.color);
+        c.fill();
+      } else {
+        polyPath(c, pts, false);
+        c.strokeStyle = paint(c, s.color);
+        c.lineWidth = s.width;
+        c.stroke();
+      }
+    }
+    c.restore();
+  }
+
+  function commit(s) {
+    bctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+    drawStroke(bctx, s);
+  }
+  function rebuild() {
+    bctx.setTransform(1, 0, 0, 1, 0, 0);
+    bctx.fillStyle = '#fff';
+    bctx.fillRect(0, 0, base.width, base.height);
+    strokes.forEach(commit);
+    show();
+  }
+  function show(partial, upto) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(base, 0, 0);
+    if (partial) {
+      ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+      drawStroke(ctx, partial, upto);
+    }
   }
 
   function pos(e) {
     const r = canvas.getBoundingClientRect();
-    return [(e.clientX - r.left) * canvas.width / r.width,
-            (e.clientY - r.top) * canvas.height / r.height];
+    const pressure = $('pressure').checked && e.pointerType === 'pen' ? Math.max(0.1, e.pressure * 1.6) : 1;
+    return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height, pressure];
   }
 
   canvas.addEventListener('pointerdown', e => {
     if (animating) return;
     canvas.setPointerCapture(e.pointerId);
     current = {
-      color: erasing ? '#fff' : colorEl.value,
-      width: erasing ? +widthEl.value * 3 : +widthEl.value,
+      color: erasing ? '#fff' : $('color').value,
+      width: erasing ? +$('width').value * 3 : +$('width').value,
+      alpha: erasing ? 1 : +$('opacity').value,
       points: [pos(e)],
     };
-    strokes.push(current);
-    drawStroke(current);
+    show(current);
   });
   canvas.addEventListener('pointermove', e => {
     if (!current) return;
-    current.points.push(pos(e));
-    redraw();
+    for (const ev of e.getCoalescedEvents?.() ?? [e]) current.points.push(pos(ev));
+    show(current);
   });
-  const end = () => { current = null; };
+  const end = () => {
+    if (!current) return;
+    if ($('taper').checked && !erasing) current.points = DrawKit.taper(current.points, 0.15, 0.25);
+    strokes.push(current);
+    commit(current);
+    current = null;
+    show();
+  };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
 
@@ -141,45 +231,50 @@
     erasing = !erasing;
     eraserEl.setAttribute('aria-pressed', erasing);
   };
-  document.getElementById('undo').onclick = () => { if (!animating) { strokes.pop(); redraw(); } };
-  document.getElementById('clear').onclick = () => { if (!animating) { strokes.length = 0; redraw(); } };
-  document.getElementById('save').onclick = () => {
+  $('undo').onclick = () => { if (!animating) { strokes.pop(); rebuild(); } };
+  $('clear').onclick = () => { if (!animating) { strokes.length = 0; rebuild(); } };
+  $('save').onclick = () => {
     const a = document.createElement('a');
     a.download = 'drawing.png';
-    a.href = canvas.toDataURL('image/png');
+    a.href = base.toDataURL('image/png');
     a.click();
   };
 
-  const pick = document.getElementById('pick');
+  const pick = $('pick');
   window.AI_DRAWINGS.forEach(d => pick.add(new Option(d.title, d.id)));
   const find = id => window.AI_DRAWINGS.find(d => d.id === id) ?? window.AI_DRAWINGS[0];
 
-  // Plays the AI's stroke list through the same pen, a few points per frame.
+  // Plays the AI's stroke list through the same pen. Each frame spends a fixed
+  // budget of points, so a picture of thousands of fine strokes still finishes in ~20s.
   function playAI(drawing, instant) {
     const list = drawing.strokes;
-    canvas.width = drawing.width;
-    canvas.height = drawing.height;
+    resize(drawing.width, drawing.height);
     strokes.length = 0;
-    redraw();
-    if (instant) { list.forEach(s => strokes.push(s)); redraw(); return Promise.resolve(); }
+    rebuild();
+    if (instant) { list.forEach(s => { strokes.push(s); commit(s); }); show(); return Promise.resolve(); }
     animating = true;
+    const total = list.reduce((n, s) => n + s.points.length, 0);
+    const budget = Math.max(3, Math.ceil(total / 1200));
     return new Promise(resolve => {
       let si = 0, pi = 0;
       function step() {
-        if (si >= list.length) { animating = false; return resolve(); }
-        const s = list[si];
-        pi = Math.min(pi + Math.max(2, Math.ceil(s.points.length / 25)), s.points.length);
-        redraw();
-        drawStroke(s, pi);
-        if (pi >= s.points.length) { strokes.push(s); si++; pi = 0; }
+        let left = budget;
+        while (left > 0 && si < list.length) {
+          const s = list[si], take = Math.min(left, s.points.length - pi);
+          pi += take; left -= take;
+          if (pi >= s.points.length) { strokes.push(s); commit(s); si++; pi = 0; }
+        }
+        if (si >= list.length) { show(); animating = false; return resolve(); }
+        show(list[si], pi);
         requestAnimationFrame(step);
       }
       step();
     });
   }
-  document.getElementById('ai').onclick = () => { if (!animating) playAI(find(pick.value)); };
+  $('ai').onclick = () => { if (!animating) playAI(find(pick.value)); };
 
-  redraw();
+  resize(W, H);
+  rebuild();
   // ?ai=<id> draws that picture on load; adding &instant skips the animation (used for screenshots).
   const params = new URLSearchParams(location.search);
   if (params.has('ai')) {
