@@ -38,10 +38,13 @@
     border: 1px solid var(--border); background: var(--bg); color: var(--ink); cursor: pointer;
   }
   button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  select { font: inherit; font-size: .85rem; padding: 5px 8px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--ink); }
   button[aria-pressed="true"] { outline: 2px solid var(--accent); }
   canvas {
     background: #fff; border: 1px solid var(--border); border-radius: 10px;
-    max-width: 100%; height: auto; touch-action: none; cursor: crosshair;
+    max-width: 100%; max-height: 85vh; width: auto; height: auto;
+    touch-action: none; cursor: crosshair;
   }
   .note { font-size: .8rem; color: var(--muted); max-width: 800px; text-align: center; }
 </style>
@@ -55,12 +58,15 @@
     <button id="undo">元に戻す</button>
     <button id="clear">全消去</button>
     <button id="save">PNG保存</button>
+    <select id="pick" aria-label="AIが描く絵"></select>
     <button id="ai" class="primary">AIが描く</button>
   </div>
   <canvas id="canvas" width="800" height="560"></canvas>
-  <p class="note">マウスや指で自由に描けます。「AIが描く」を押すと、Claude があらかじめ一筆ずつ設計した絵「眠らない同僚」を同じペンで描いていきます。</p>
+  <p class="note">マウスや指で自由に描けます。「AIが描く」を押すと、選んだ絵を Claude が一筆ずつ、同じペンで描いていきます。</p>
 
+<script src="draw-kit.js"></script>
 <script src="ai-drawing.js"></script>
+<script src="moonlight-copy.js"></script>
 <script>
 (() => {
   const canvas = document.getElementById('canvas');
@@ -144,8 +150,15 @@
     a.click();
   };
 
+  const pick = document.getElementById('pick');
+  window.AI_DRAWINGS.forEach(d => pick.add(new Option(d.title, d.id)));
+  const find = id => window.AI_DRAWINGS.find(d => d.id === id) ?? window.AI_DRAWINGS[0];
+
   // Plays the AI's stroke list through the same pen, a few points per frame.
-  function playAI(list, instant) {
+  function playAI(drawing, instant) {
+    const list = drawing.strokes;
+    canvas.width = drawing.width;
+    canvas.height = drawing.height;
     strokes.length = 0;
     redraw();
     if (instant) { list.forEach(s => strokes.push(s)); redraw(); return Promise.resolve(); }
@@ -164,12 +177,16 @@
       step();
     });
   }
-  document.getElementById('ai').onclick = () => { if (!animating) playAI(window.AI_DRAWING); };
+  document.getElementById('ai').onclick = () => { if (!animating) playAI(find(pick.value)); };
 
   redraw();
-  // ?ai=1 draws immediately, ?ai=instant skips the animation (used for screenshots).
-  const q = new URLSearchParams(location.search).get('ai');
-  if (q) playAI(window.AI_DRAWING, q === 'instant');
+  // ?ai=<id> draws that picture on load; adding &instant skips the animation (used for screenshots).
+  const params = new URLSearchParams(location.search);
+  if (params.has('ai')) {
+    const d = find(params.get('ai'));
+    pick.value = d.id;
+    playAI(d, params.has('instant'));
+  }
 })();
 </script>
 </body>

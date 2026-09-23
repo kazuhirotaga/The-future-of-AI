@@ -1,16 +1,8 @@
 // 「眠らない同僚」— 夜の丘で、明かりの灯る家を見守る小さなロボット。
 // すべて {color, width, fill?, points} のストロークで、人間のペンと同じ経路で描かれる。
 (() => {
-  const S = [];
-  const add = (points, o = {}) => S.push({ color: o.color ?? '#2b2b2b', width: o.width ?? 3, fill: o.fill, alpha: o.alpha, points });
-
-  const ellipse = (cx, cy, rx, ry, a0 = 0, a1 = Math.PI * 2, n = 48) =>
-    Array.from({ length: n + 1 }, (_, i) => {
-      const a = a0 + (a1 - a0) * i / n;
-      return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)];
-    });
-  const circle = (cx, cy, r, n) => ellipse(cx, cy, r, r, 0, Math.PI * 2, n);
-  const rect = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]];
+  const { ellipse, circle, rect } = DrawKit;
+  const { strokes: S, add } = DrawKit.canvas();
   const hill = (y0, amp, freq, phase) => {
     const p = [[0, 560]];
     for (let x = 0; x <= 800; x += 10) p.push([x, y0 + amp * Math.sin(x * freq + phase)]);
@@ -87,5 +79,5 @@
     add([[x, y + 20], [x + 7, y - 4]], { color: '#5f8a63', width: 3 });
   }
 
-  window.AI_DRAWING = S;
+  (window.AI_DRAWINGS ||= []).push({ id: 'nemuranai', title: '眠らない同僚', width: 800, height: 560, strokes: S });
 })();
